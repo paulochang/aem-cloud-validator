@@ -70,27 +70,27 @@ class AemCloudValidatorTest {
 
     @Test
     void testMutablePaths(){
-        AemCloudValidator validator = new AemCloudValidator(false, false, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
+        AemCloudValidator validator = new AemCloudValidator(false, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
         Collection<ValidationMessage> messages = validator.validate("/var/subnode");
         Assertions.assertFalse(messages.isEmpty());
     }
 
     @Test
     void testAllowReadOnlyMutablePaths(){
-        AemCloudValidator validator = new AemCloudValidator(true, false, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
+        AemCloudValidator validator = new AemCloudValidator(true, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
         Collection<ValidationMessage> messages = validator.validate("/var/subnode");
         Assertions.assertTrue(messages.isEmpty());
     }
 
     @Test
     void testAllowHooksInMutableContent() {
-        AemCloudValidator validator = new AemCloudValidator(true, false, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
+        AemCloudValidator validator = new AemCloudValidator(true, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
         Collection<ValidationMessage> messages = new ArrayList<>();
         Optional.ofNullable(validator.validateMetaInfPath(Paths.get("vault/hooks/install-hook.jar"))).ifPresent(messages::addAll);
         Optional.ofNullable(validator.done()).ifPresent(messages::addAll);
         Assertions.assertTrue(messages.stream().anyMatch(message -> message.getMessage().equals(AemCloudValidator.VIOLATION_MESSAGE_INSTALL_HOOK_IN_MUTABLE_PACKAGE)));
 
-        validator = new AemCloudValidator(true, false, true, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
+        validator = new AemCloudValidator(true, false, true, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
         messages = new ArrayList<>();
         Optional.ofNullable(validator.validateMetaInfPath(Paths.get("vault/hooks/install-hook.jar"))).ifPresent(messages::addAll);
         Optional.ofNullable(validator.done()).ifPresent(messages::addAll);
@@ -99,7 +99,7 @@ class AemCloudValidatorTest {
 
     @Test
     void testValidIndexDefinitions() {
-        AemCloudValidator validator = new AemCloudValidator(true, false, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
+        AemCloudValidator validator = new AemCloudValidator(true, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
         Collection<ValidationMessage> messages = new ArrayList<>();
         List<DocViewProperty2> properties = Arrays.asList(
                 new DocViewProperty2(NameConstants.JCR_PRIMARYTYPE, "oak:QueryIndexDefinition"),
@@ -117,7 +117,7 @@ class AemCloudValidatorTest {
 
     @Test
     void testInvalidLuceneIndexDefinitions() {
-        AemCloudValidator validator = new AemCloudValidator(true, false, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
+        AemCloudValidator validator = new AemCloudValidator(true, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
         Collection<ValidationMessage> messages = new ArrayList<>();
         List<DocViewProperty2> properties = Arrays.asList(
                 new DocViewProperty2(NameConstants.JCR_PRIMARYTYPE, "oak:QueryIndexDefinition"),
@@ -134,7 +134,7 @@ class AemCloudValidatorTest {
 
     @Test
     void testValidDiffIndexDefinitions() {
-        AemCloudValidator validator = new AemCloudValidator(true, false, false, true, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
+        AemCloudValidator validator = new AemCloudValidator(true, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
         List<DocViewProperty2> properties = Arrays.asList(
                 new DocViewProperty2(NameConstants.JCR_PRIMARYTYPE, "oak:QueryIndexDefinition"),
                 new DocViewProperty2(NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "type"), "disabled"));
@@ -153,7 +153,7 @@ class AemCloudValidatorTest {
 
     @Test
     void testInvalidDiffIndexType() {
-        AemCloudValidator validator = new AemCloudValidator(true, false, false, true, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
+        AemCloudValidator validator = new AemCloudValidator(true, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
         List<DocViewProperty2> properties = Arrays.asList(
                 new DocViewProperty2(NameConstants.JCR_PRIMARYTYPE, "oak:QueryIndexDefinition"),
                 new DocViewProperty2(NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "type"), "lucene"));
@@ -174,43 +174,8 @@ class AemCloudValidatorTest {
     }
 
     @Test
-    void testCloudManagerDiffIndexWrapper() {
-        AemCloudValidator validator = new AemCloudValidator(true, false, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
-        List<DocViewProperty2> properties = Arrays.asList(
-                new DocViewProperty2(NameConstants.JCR_PRIMARYTYPE, "nt:unstructured"),
-                new DocViewProperty2(NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "type"), "lucene"),
-                new DocViewProperty2(NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "includedPaths"), "/same"),
-                new DocViewProperty2(NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "queryPaths"), "/same"));
-        DocViewNode2 node = new DocViewNode2(NameConstants.JCR_ROOT, properties);
-        // valid Cloud Manager wrapper
-        NodeContext context = new NodeContextImpl("/oak:index/diff.index", Paths.get("_oak_index/test"),Paths.get("./jcr_root"));
-        Collection<ValidationMessage> messages = new ArrayList<>();
-        Optional.ofNullable(validator.validate(node, context, true)).ifPresent(messages::addAll);
-        MatcherAssert.assertThat(messages, Matchers.empty());
-        // still allowed when allowing the local wrapper
-        validator = new AemCloudValidator(true, false, false, true, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
-        Optional.ofNullable(validator.validate(node, context, true)).ifPresent(messages::addAll);
-        MatcherAssert.assertThat(messages, Matchers.empty());
-        // local wrapper and invalid wrapper are not supported by Cloud Manager
-        validator = new AemCloudValidator(true, false, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
-        messages = new ArrayList<>();
-        properties = Arrays.asList(
-                new DocViewProperty2(NameConstants.JCR_PRIMARYTYPE, "oak:QueryIndexDefinition"),
-                new DocViewProperty2(NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "type"), "disabled"));
-        Optional.ofNullable(validator.validate(new DocViewNode2(NameConstants.JCR_ROOT, properties), context, true)).ifPresent(messages::addAll);
-        properties = Arrays.asList(
-                new DocViewProperty2(NameConstants.JCR_PRIMARYTYPE, "nt:unstructured"),
-                new DocViewProperty2(NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "type"), "lucene"));
-        Optional.ofNullable(validator.validate(new DocViewNode2(NameConstants.JCR_ROOT, properties), context, true)).ifPresent(messages::addAll);
-        MatcherAssert.assertThat(messages, Matchers.contains(
-                new ValidationMessage(ValidationMessageSeverity.ERROR, String.format(AemCloudValidator.VIOLATION_MESSAGE_INVALID_CLOUD_MANAGER_DIFF_INDEX_WRAPPER, "oak:QueryIndexDefinition", "disabled", "not set", "not set")),
-                new ValidationMessage(ValidationMessageSeverity.ERROR, String.format(AemCloudValidator.VIOLATION_MESSAGE_INVALID_CLOUD_MANAGER_DIFF_INDEX_WRAPPER, "nt:unstructured", "lucene", "not set", "not set"))
-        ));
-    }
-
-    @Test
     void testDiffIndexLookalikeNamesNotExempted() {
-        AemCloudValidator validator = new AemCloudValidator(true, false, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
+        AemCloudValidator validator = new AemCloudValidator(true, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
         List<DocViewProperty2> properties = Arrays.asList(
                 new DocViewProperty2(NameConstants.JCR_PRIMARYTYPE, "oak:QueryIndexDefinition"),
                 new DocViewProperty2(NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "type"), "lucene"),
@@ -239,7 +204,7 @@ class AemCloudValidatorTest {
 
     @Test
     void testInvalidPropertyIndexDefinition() {
-        AemCloudValidator validator = new AemCloudValidator(true, false, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
+        AemCloudValidator validator = new AemCloudValidator(true, false, false, PackageType.CONTENT, null, ValidationMessageSeverity.ERROR);
         Collection<ValidationMessage> messages = new ArrayList<>();
         List<DocViewProperty2> properties =  Arrays.asList(
                 new DocViewProperty2(NameConstants.JCR_PRIMARYTYPE, "oak:QueryIndexDefinition"),

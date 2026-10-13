@@ -30,7 +30,6 @@ public class AemCloudValidatorFactory implements ValidatorFactory {
     private static final String OPTION_ALLOW_READONLY_MUTABLE_PATHS = "allowReadOnlyMutablePaths";
     private static final String OPTION_ALLOW_LIBS_NODE = "allowLibsNode";
     private static final String OPTION_ALLOW_HOOKS_IN_MUTABLE_CONTENT = "allowHooksInMutableContent";
-    private static final String OPTION_ALLOW_LOCAL_DIFF_INDEX_WRAPPER = "allowLocalDiffIndexWrapper";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AemCloudValidatorFactory.class);
 
@@ -46,17 +45,13 @@ public class AemCloudValidatorFactory implements ValidatorFactory {
         }
         boolean allowLibsNode = false;
         boolean allowHooksInMutableContent = false;
-        boolean allowLocalDiffIndexWrapper = false;
         if (settings.getOptions().containsKey(OPTION_ALLOW_LIBS_NODE)) {
             allowLibsNode = Boolean.parseBoolean(settings.getOptions().get(OPTION_ALLOW_LIBS_NODE));
         }
         if (settings.getOptions().containsKey(OPTION_ALLOW_HOOKS_IN_MUTABLE_CONTENT)) {
             allowHooksInMutableContent = Boolean.parseBoolean(settings.getOptions().get(OPTION_ALLOW_HOOKS_IN_MUTABLE_CONTENT));
         }
-        if (settings.getOptions().containsKey(OPTION_ALLOW_LOCAL_DIFF_INDEX_WRAPPER)) {
-            allowLocalDiffIndexWrapper = Boolean.parseBoolean(settings.getOptions().get(OPTION_ALLOW_LOCAL_DIFF_INDEX_WRAPPER));
-        }
-        return new AemCloudValidator(allowReadOnlyMutablePaths, allowLibsNode, allowHooksInMutableContent, allowLocalDiffIndexWrapper, context.getProperties().getPackageType(), context.getContainerValidationContext(), settings.getDefaultSeverity());
+        return new AemCloudValidator(allowReadOnlyMutablePaths, allowLibsNode, allowHooksInMutableContent, context.getProperties().getPackageType(), context.getContainerValidationContext(), settings.getDefaultSeverity());
     }
 
     @Override

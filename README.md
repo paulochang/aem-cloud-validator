@@ -19,7 +19,6 @@ Option | Mandatory | Description | Default Value | Since Version
 `allowReadOnlyMutablePaths` (or `allowVarNodeOutsideContainer` deprecated) | no | `true` means read-only paths (i.e. paths to which the service session used for mutable package installation on publish does not have write permission) should be allowed. Otherwise those will only be allowed in author-only packages included in a container package. | `false` | 1.2.0 
 `allowLibsNode` | no | `true` means that `libs` nodes are allowed in content packages. *Only set this to `true` when building packages which are part of the AEM product.* | `false` | 1.2.0
 `allowHooksInMutableContent` | no | `true` means that JCR Install Hooks are allowed in content packages. *Only set this to `true` when building packages for local AEM SDK development or when explicitly allowed via OSGi configuration (details below in check description for install hooks).* | `false` | 1.3.0
-`allowLocalDiffIndexWrapper` | no | `true` means that the wrapper of the diff index required by the local AEM SDK and RDE is allowed. *Only set this to `true` when building packages for the local AEM SDK or RDE (details below in check description for the diff index).* | `false` | 1.5.0
 
 # Included Checks
 
@@ -78,29 +77,9 @@ There is a mandatory naming policy for Oak index definition node names which enf
 
 Further details in <https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/operations/indexing#preparing-the-new-index-definition>.
 
-## Enforce diff index wrapper matching the target environment
+## Enforce diff.index control nodes of type `disabled`
 
-The node `/oak:index/diff.index` containing the `diff.json` used by Oak's simplified index management is exempt from the naming, `type=lucene` and `compatVersion` rules above. Its wrapper `.content.xml` must differ depending on the target environment though: Cloud Manager builds fail for an `oak:QueryIndexDefinition` while the local AEM SDK and RDE ignore every other node type (i.e. the custom indexes are not created there).
-
-By default the wrapper required by Cloud Manager is enforced, which must have `jcr:primaryType` set to `nt:unstructured`, `type` set to `lucene` and both `includedPaths` and `queryPaths` set to a non-existing path:
-
-```
-<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" jcr:primaryType="nt:unstructured" type="lucene" includedPaths="/same" queryPaths="/same" async="async">
-  <diff.json jcr:primaryType="nt:file"/>
-</jcr:root>
-```
-
-With option `allowLocalDiffIndexWrapper` set to `true` the wrapper required by the local AEM SDK and RDE is allowed as well, which must have `jcr:primaryType` set to `oak:QueryIndexDefinition` and `type` set to `disabled`:
-
-```
-<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" jcr:primaryType="oak:QueryIndexDefinition" type="disabled">
-  <diff.json jcr:primaryType="nt:file"/>
-</jcr:root>
-```
-
-Usually the wrapper is switched via Maven profiles, so the option should only be set in the profile used for building packages for the local AEM SDK and RDE. The control node `/oak:index/diff.index.optimizer` (Index Optimizer) must always be an `oak:QueryIndexDefinition` with `type` set to `disabled`.
-
-Further details in <https://experienceleague.adobe.com/en/docs/experience-cloud-kcs/kbarticles/ka-41939> and <https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/operations/indexing#simplified-index-management-using-the-diff-index>.
+The control nodes `/oak:index/diff.index` and `/oak:index/diff.index.optimizer` used by Oak's simplified index management (diff indexes) are exempt from the naming, `type=lucene` and `compatVersion` rules above, but must have `type` set to `disabled`. Further details in <https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/operations/indexing#simplified-index-management-using-the-diff-index>.
 
 # Usage with Maven
 
