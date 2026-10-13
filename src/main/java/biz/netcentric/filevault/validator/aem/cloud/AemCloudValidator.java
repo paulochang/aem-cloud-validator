@@ -55,6 +55,7 @@ public class AemCloudValidator implements NodePathValidator, MetaInfPathValidato
     static final String VIOLATION_MESSAGE_NON_LUCENE_TYPE_INDEX_DEFINITION = "Only oak:QueryIndexDefinitions of type='lucene' are supported in AEMaaCS but found type='%s'. Compare with https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/operations/indexing#current-limitations";
     static final String VIOLATION_MESSAGE_INVALID_COMPAT_VERSION_IN_INDEX_DEFINITION = "The compatVersion property of an oak:QueryIndexDefinition must be set to the Long value '2' but found '%s'. Compare with https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/operations/indexing#current-limitations";
     static final String VIOLATION_MESSAGE_INVALID_DIFF_INDEX_TYPE = "The diff-index control node used for Oak simplified index management must have type='disabled' but found type='%s'. Further details at https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/operations/indexing#simplified-index-management-using-the-diff-index";
+    static final String VIOLATION_MESSAGE_INVALID_CLOUD_MANAGER_DIFF_INDEX_WRAPPER = "The diff-index node deployed via Cloud Manager must have jcr:primaryType='nt:unstructured', type='lucene' and both includedPaths and queryPaths set to a non-existing path (e.g. '/same') but found jcr:primaryType='%s', type='%s', includedPaths='%s' and queryPaths='%s'. Further details at https://experienceleague.adobe.com/en/docs/experience-cloud-kcs/kbarticles/ka-41939";
 
     // this path is relative to META-INF
     private static final Path INSTALL_HOOK_PATH = Paths.get(Constants.VAULT_DIR, Constants.HOOKS_DIR);
@@ -66,7 +67,8 @@ public class AemCloudValidator implements NodePathValidator, MetaInfPathValidato
      * Paths of the diff-index control nodes used by Oak simplified index management (OAK-12010).
      * They are not index definitions themselves and don't follow the naming/type/compatVersion rules of regular index definitions.
      */
-    private static final Collection<String> DIFF_INDEX_CONTROL_NODE_PATHS = Arrays.asList("/oak:index/diff.index", "/oak:index/diff.index.optimizer");
+    private static final String DIFF_INDEX_PATH = "/oak:index/diff.index";
+    private static final Collection<String> DIFF_INDEX_CONTROL_NODE_PATHS = Arrays.asList(DIFF_INDEX_PATH, "/oak:index/diff.index.optimizer");
 
     private static final Collection<String> IMMUTABLE_PATH_PREFIXES = Arrays.asList("/apps", "/libs", "/oak:index");
     private static final Collection<String> WRITABLE_PATHS_BY_DISTRIBUTION_IMPORTER = Arrays.asList(
@@ -84,22 +86,26 @@ public class AemCloudValidator implements NodePathValidator, MetaInfPathValidato
     private final boolean allowReadOnlyMutablePaths;
     private final boolean allowLibsNode;
     private final boolean allowHooksInMutableContent;
+    private final boolean allowLocalDiffIndexWrapper;
     private boolean hasInstallHooks;
     private boolean hasImmutableNodes;
 
     private static final int MAX_NUM_VIOLATIONS_PER_TYPE = 5;
     private static final Name PN_TYPE = NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "type");
     private static final Name PN_COMPAT_VERSION = NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "compatVersion");
+    private static final Name PN_INCLUDED_PATHS = NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "includedPaths");
+    private static final Name PN_QUERY_PATHS = NameFactoryImpl.getInstance().create(Name.NS_DEFAULT_URI, "queryPaths");
     private int numVarNodeViolations = 0;
     private int numLibNodeViolations = 0;
     private int numMutableNodeViolations = 0;
 
-    public AemCloudValidator(boolean allowReadOnlyMutablePaths, boolean allowLibsNode, boolean allowHooksInMutableContent, @Nullable PackageType packageType,
+    public AemCloudValidator(boolean allowReadOnlyMutablePaths, boolean allowLibsNode, boolean allowHooksInMutableContent, boolean allowLocalDiffIndexWrapper, @Nullable PackageType packageType,
                              @Nullable ValidationContext containerValidationContext, @NotNull ValidationMessageSeverity defaultSeverity) {
         super();
         this.allowReadOnlyMutablePaths = allowReadOnlyMutablePaths;
         this.allowLibsNode = allowLibsNode;
         this.allowHooksInMutableContent = allowHooksInMutableContent;
+        this.allowLocalDiffIndexWrapper = allowLocalDiffIndexWrapper;
         this.packageType = packageType;
         this.containerValidationContext = containerValidationContext;
         this.defaultSeverity = defaultSeverity;
@@ -218,6 +224,18 @@ public class AemCloudValidator implements NodePathValidator, MetaInfPathValidato
 
     @Override
     public @Nullable Collection<ValidationMessage> validate(@NotNull DocViewNode2 node, @NotNull NodeContext nodeContext, boolean isRoot) {
+        String primaryType = node.getPrimaryType().orElse("");
+        // the local wrapper makes Cloud Manager builds fail, compare with https://experienceleague.adobe.com/en/docs/experience-cloud-kcs/kbarticles/ka-41939
+        if (DIFF_INDEX_PATH.equals(nodeContext.getNodePath()) && !(allowLocalDiffIndexWrapper && "oak:QueryIndexDefinition".equals(primaryType))) {
+            String indexType = node.getPropertyValue(PN_TYPE).orElse("");
+            Optional<DocViewProperty2> includedPathsProperty = node.getProperty(PN_INCLUDED_PATHS);
+            Optional<DocViewProperty2> queryPathsProperty = node.getProperty(PN_QUERY_PATHS);
+            if (!"nt:unstructured".equals(primaryType) || !"lucene".equals(indexType) || !includedPathsProperty.isPresent() || !queryPathsProperty.isPresent()) {
+                return Collections.singleton(new ValidationMessage(defaultSeverity,
+                        String.format(VIOLATION_MESSAGE_INVALID_CLOUD_MANAGER_DIFF_INDEX_WRAPPER, primaryType, indexType,
+                                includedPathsProperty.map(p -> p.formatValue()).orElse("not set"), queryPathsProperty.map(p -> p.formatValue()).orElse("not set"))));
+            }
+        }
         if ("oak:QueryIndexDefinition".equals(node.getPrimaryType().orElse(""))) {
             if (DIFF_INDEX_CONTROL_NODE_PATHS.contains(nodeContext.getNodePath())) {
                 String diffIndexType = node.getPropertyValue(PN_TYPE).orElse("");
